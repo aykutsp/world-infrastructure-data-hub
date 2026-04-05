@@ -25,6 +25,35 @@ function invert(t: number | null): number | null {
   return t == null ? null : 1 - t;
 }
 
+// Per-metric formatter for the in-map label chip. Prices get a $ prefix,
+// percentages get a % suffix, and physical metrics get their units.
+function formatLabelValue(key: string, v: number): string {
+  switch (key) {
+    case 'wb.gdp':
+      return v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`;
+    case 'wb.life':
+      return `${v.toFixed(0)} yrs`;
+    case 'wb.internet':
+    case 'wb.renewables':
+    case 'wb.unemployment':
+    case 'wb.inflation':
+      return `${v.toFixed(0)}%`;
+    case 'wb.gini':
+      return v.toFixed(1);
+    case 'co2':
+      return `${v.toFixed(1)}t`;
+    case 'grid.co2':
+      return `${Math.round(v)}g`;
+    case 'electricity':
+      return `$${v.toFixed(2)}`;
+    case 'ev.home':
+    case 'ev.public':
+      return `$${v.toFixed(1)}`;
+    default:
+      return `$${v.toFixed(2)}`;
+  }
+}
+
 function bucketColor(t: number | null): string {
   if (t == null || !isFinite(t)) return '#2b2f36';
   if (t < 0.15) return '#006837';
@@ -229,7 +258,7 @@ export default function InfraMap({
           const v = spec.extract(c);
           if (v == null || v <= 0) return null;
           const showName = currentZoom >= 4;
-          const formatted = spec.key === 'co2' ? `${v.toFixed(1)} t` : `$${v.toFixed(2)}`;
+          const formatted = formatLabelValue(spec.key, v);
           return (
             <Marker
               key={`label-${c.id}`}
