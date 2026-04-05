@@ -28,6 +28,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund
       - name: Generate dataset
+        env:
+          OPENCHARGEMAP_KEY: ${{ secrets.OPENCHARGEMAP_KEY }}
         run: npm run generate-data
       - name: Build site
         env:
