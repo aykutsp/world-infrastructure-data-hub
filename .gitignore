@@ -53,3 +53,12 @@ coverage/
 .eslintcache
 .parcel-cache/
 .vite/
+
+# Claude Code local session (never commit)
+.claude/
+
+# Pipeline probe / scratch files
+eurostat.json
+owid_*.csv
+wb_*.xlsx
+*.tmp.json
