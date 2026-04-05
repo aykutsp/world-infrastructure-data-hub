@@ -1,0 +1,49 @@
+name: 🛰️ New data source suggestion
+description: Suggest a new country-level or station-level fuel price feed we could integrate.
+labels: ["data", "enhancement"]
+body:
+  - type: input
+    id: country
+    attributes:
+      label: Country / region
+      placeholder: "Germany, Japan, Mexico…"
+    validations:
+      required: true
+  - type: input
+    id: source-url
+    attributes:
+      label: Official source URL
+      placeholder: "https://..."
+    validations:
+      required: true
+  - type: dropdown
+    id: granularity
+    attributes:
+      label: Granularity
+      options:
+        - Station-level (per-station prices, daily)
+        - National average (weekly or monthly)
+        - Regional average (per state / province)
+    validations:
+      required: true
+  - type: textarea
+    id: license
+    attributes:
+      label: License / reuse terms
+      description: Is redistribution allowed? Under what conditions? Link to the terms page.
+    validations:
+      required: true
+  - type: textarea
+    id: format
+    attributes:
+      label: Format (CSV / JSON / XML / XLSX / HTML scrape / SOAP / API key)
+      description: Helps us estimate integration effort.
+    validations:
+      required: true
+  - type: checkboxes
+    id: auth
+    attributes:
+      label: Authentication
+      options:
+        - label: Requires API key / registration
+        - label: Publicly accessible (no auth)

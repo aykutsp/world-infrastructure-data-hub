@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation & API reference
+    url: https://github.com/aykutsp/world-fuel-prices#-open-data-api
+    about: Check the README for installation, API usage and library examples before opening an issue.
+  - name: 🗺 Live demo
+    url: https://aykutsp.github.io/world-fuel-prices/
+    about: Open the live site.

@@ -1,0 +1,50 @@
+name: 🐞 Bug report
+description: Something on the site, in the dataset, or in one of the libraries isn't behaving right.
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much as you can.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Web app (map / sidebar / trip calculator)
+        - Dataset (prices.json / trip endpoints / countries.geojson)
+        - Client library (libraries/*)
+        - CI / deploy workflow
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: URL (if applicable)
+      placeholder: "https://aykutsp.github.io/world-fuel-prices/..."
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What actually happens?
+      description: Include screenshots, console errors, or API responses if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the site
+        2. Switch to Trip mode
+        3. ...
+  - type: input
+    id: env
+    attributes:
+      label: Browser / OS / runtime
+      placeholder: "Chrome 132, Windows 11, or Node 20.10, or Python 3.12"
