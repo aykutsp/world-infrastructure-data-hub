@@ -456,6 +456,8 @@ function formatValue(spec: DatasetSpec, v: number): string {
       return v.toFixed(1);
     case 'co2':
       return `${v.toFixed(2)} t`;
+    case 'grid.co2':
+      return `${Math.round(v)} g/kWh`;
     case 'electricity':
       return `$${v.toFixed(3)}/kWh`;
     case 'ev.home':

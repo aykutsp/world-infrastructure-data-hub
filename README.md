@@ -10,6 +10,28 @@ An interactive world map for the real cost of *living* and *moving*: **retail fu
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)
 ![Vite](https://img.shields.io/badge/Vite-8-646cff.svg)
 
+## 📸 Screenshots
+
+**Explore view — 15 metrics grouped into Cost / Energy / Society**
+
+![Explore — gasoline prices worldwide](docs/screenshots/explore-gasoline.png)
+
+**Grid CO₂ intensity** — new in v1.1, the carbon intensity of each country's electricity mix in gCO₂ per kWh:
+
+![Explore — grid carbon intensity](docs/screenshots/explore-grid-co2.png)
+
+**Compare view** — pick up to 5 countries and stack every metric side-by-side, with the best cell per row highlighted:
+
+![Compare view](docs/screenshots/compare.png)
+
+**Trip calculator** — routing via OSRM, five vehicle/fuel modes, up to 8 waypoints, per-refuel receipt:
+
+![Trip calculator — Istanbul → Berlin](docs/screenshots/trip-istanbul-berlin.png)
+
+**API Library** — click the button at the bottom of the sidebar for the full endpoint reference and copy-paste snippets in curl, JavaScript, Python, Go and PHP:
+
+![API library modal](docs/screenshots/api-library.png)
+
 ## ✨ Features
 
 - 🗺 **Unified choropleth world map** with 14 metrics grouped into **Cost**, **Energy** and **Society** tabs
