@@ -190,7 +190,21 @@ for c in by_life[:10]:
 - [ ] Charging-station point-of-interest layer (OpenChargeMap)
 - [ ] Water prices, air quality, mobile & broadband costs as future metrics
 
+## 📦 Client Libraries
+
+Language-specific wrappers live under [`libraries/`](./libraries/). All five expose the same surface (`getDataset`, `getCountry`, `rank`, `globalAverage`) and are ready to publish to their respective registries.
+
+| Language | Package | Install | Source |
+|---|---|---|---|
+| JavaScript / TypeScript | `world-infra-data` (npm) | `npm install world-infra-data` | [`libraries/typescript`](./libraries/typescript) |
+| Python 3.9+ | `world-infra-data` (PyPI) | `pip install world-infra-data` | [`libraries/python`](./libraries/python) |
+| Go 1.21+ | `github.com/aykutsp/world-infrastructure-data-hub/libraries/go` | `go get github.com/aykutsp/world-infrastructure-data-hub/libraries/go@latest` | [`libraries/go`](./libraries/go) |
+| Dart / Flutter | `world_infra_data` (pub.dev) | `dart pub add world_infra_data` | [`libraries/flutter`](./libraries/flutter) |
+| .NET 8+ | `WorldInfraData` (NuGet) | `dotnet add package WorldInfraData` | [`libraries/csharp`](./libraries/csharp) |
+
 ## 📜 Changelog
+
+**v1.1.0** — Grid CO₂ intensity (gCO₂/kWh) from OWID/Ember energy data as a 15th metric, 15-year historical time-series for CO₂ and the eight World Bank indicators, inline SVG sparklines next to every historical metric in the country detail panel, five official client libraries under `libraries/` (npm, PyPI, Go modules, Flutter, NuGet), optional OpenChargeMap charging-station count loader (activates automatically when `OPENCHARGEMAP_KEY` is set in the CI environment).
 
 **v1.0.0** — Live Eurostat electricity pull, Country Compare view (up to 5 countries side-by-side), ported Trip Calculator with 5 cost modes (gasoline / diesel / LPG / EV home / EV fast) and up to 8 waypoints, API Library modal with copy-paste snippets, 8 new World Bank indicators (GDP per capita, population, life expectancy, internet users, renewable share, Gini, unemployment, inflation).
 

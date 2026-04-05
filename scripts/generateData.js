@@ -68,6 +68,8 @@ const ELECTRICITY_FALLBACK_USD_PER_KWH = {
 };
 const OWID_CO2_URL =
   'https://raw.githubusercontent.com/owid/co2-data/master/owid-co2-data.csv';
+const OWID_ENERGY_URL =
+  'https://raw.githubusercontent.com/owid/energy-data/master/owid-energy-data.csv';
 
 const NE_COUNTRIES_GEOJSON_URL =
   'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson';
@@ -375,7 +377,14 @@ const WB_INDICATORS = {
 
 async function loadWorldBankIndicators(geo) {
   console.log('\n[World Bank] fetching 8 indicators via api.worldbank.org...');
-  const out = {}; // iso2 -> { gdp_per_capita_usd: {...}, population: {...}, ... }
+  const out = {}; // iso2 -> { gdp_per_capita_usd: { value, year, history: [...], ... }, ... }
+
+  // Cut history window to keep payload size sensible. 15 years of annual
+  // values per indicator per country is plenty for sparklines.
+  const HISTORY_YEARS = 15;
+  const currentYear = new Date().getFullYear();
+  const historyFloor = currentYear - HISTORY_YEARS;
+
   for (const [field, { code, label }] of Object.entries(WB_INDICATORS)) {
     try {
       const url = `https://api.worldbank.org/v2/country/all/indicator/${code}?format=json&per_page=25000`;
@@ -383,24 +392,33 @@ async function loadWorldBankIndicators(geo) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const payload = await res.json();
       const rows = Array.isArray(payload) && payload.length >= 2 ? payload[1] : [];
-      // For each country, keep the newest non-null value.
+
+      // Per-country: collect all rows, sort by year, keep the last
+      // HISTORY_YEARS and the latest non-null value.
       const byIso3 = new Map();
       for (const row of rows) {
         const iso3 = row?.countryiso3code;
         const value = row?.value;
         const year = Number(row?.date);
         if (!iso3 || value == null || !isFinite(value) || !isFinite(year)) continue;
-        const prev = byIso3.get(iso3);
-        if (!prev || prev.year < year) {
-          byIso3.set(iso3, { value: Number(value), year });
-        }
+        if (year < historyFloor) continue;
+        if (!byIso3.has(iso3)) byIso3.set(iso3, []);
+        byIso3.get(iso3).push({ year, value: Number(value) });
       }
+
       let count = 0;
-      for (const [iso3, { value, year }] of byIso3) {
+      for (const [iso3, series] of byIso3) {
         const meta = geo.byIso3[iso3];
         if (!meta) continue;
+        series.sort((a, b) => a.year - b.year);
+        const latest = series[series.length - 1];
         if (!out[meta.iso2]) out[meta.iso2] = {};
-        out[meta.iso2][field] = { value: round(value, 3), year, source: 'World Bank' };
+        out[meta.iso2][field] = {
+          value: round(latest.value, 3),
+          year: latest.year,
+          source: 'World Bank',
+          history: series.map((p) => [p.year, round(p.value, 3)]),
+        };
         count++;
       }
       console.log(`  ✓ ${label}: ${count} countries`);
@@ -472,13 +490,49 @@ function deriveEvCharging(electricity) {
   return out;
 }
 
+async function loadGridCO2Intensity(geo) {
+  console.log('\n[Grid CO2] OWID energy-data / carbon_intensity_elec...');
+  const out = {};
+  try {
+    const text = await fetchText(OWID_ENERGY_URL);
+    const { rows } = parseCsv(text);
+    // Keep the latest non-null carbon_intensity_elec per country.
+    const latest = new Map();
+    for (const row of rows) {
+      const iso3 = (row.iso_code || '').trim().toUpperCase();
+      if (!iso3 || iso3.length !== 3) continue;
+      const year = Number(row.year);
+      const intensity = Number(row.carbon_intensity_elec);
+      if (!isFinite(year) || !isFinite(intensity) || intensity <= 0) continue;
+      const prev = latest.get(iso3);
+      if (!prev || prev.year < year) latest.set(iso3, { year, intensity });
+    }
+    for (const [iso3, { year, intensity }] of latest) {
+      const meta = geo.byIso3[iso3];
+      if (!meta) continue;
+      out[meta.iso2] = {
+        gco2_per_kwh: round(intensity, 2),
+        year,
+        source: 'Our World in Data (Ember / Energy Institute)',
+      };
+    }
+    console.log(`  ✓ Grid CO2 intensity: ${Object.keys(out).length} countries`);
+  } catch (e) {
+    console.warn(`  ✗ Grid CO2 failed: ${e.message}`);
+  }
+  return out;
+}
+
 async function loadCO2(geo) {
   console.log('\n[CO2] Our World in Data co2-data...');
   const out = {};
+  const HISTORY_YEARS = 15;
+  const currentYear = new Date().getFullYear();
+  const historyFloor = currentYear - HISTORY_YEARS;
   try {
     const text = await fetchText(OWID_CO2_URL);
     const { rows } = parseCsv(text);
-    const latest = new Map();
+    const byIso3 = new Map();
     for (const row of rows) {
       const iso3 = (row.iso_code || '').trim().toUpperCase();
       if (!iso3 || iso3.length !== 3) continue;
@@ -486,23 +540,64 @@ async function loadCO2(geo) {
       const perCapita = Number(row.co2_per_capita);
       const total = Number(row.co2);
       if (!isFinite(year) || !isFinite(perCapita) || perCapita <= 0) continue;
-      const prev = latest.get(iso3);
-      if (!prev || prev.year < year) latest.set(iso3, { year, perCapita, total });
+      if (!byIso3.has(iso3)) byIso3.set(iso3, []);
+      byIso3.get(iso3).push({ year, perCapita, total: isFinite(total) ? total : null });
     }
-    for (const [iso3, { year, perCapita, total }] of latest) {
+    for (const [iso3, series] of byIso3) {
       const meta = geo.byIso3[iso3];
       if (!meta) continue;
+      series.sort((a, b) => a.year - b.year);
+      const latest = series[series.length - 1];
+      const history = series
+        .filter((p) => p.year >= historyFloor)
+        .map((p) => [p.year, round(p.perCapita, 3)]);
       out[meta.iso2] = {
-        year,
-        tonnes_per_capita: round(perCapita, 3),
-        total_million_tonnes: isFinite(total) ? round(total, 2) : null,
+        year: latest.year,
+        tonnes_per_capita: round(latest.perCapita, 3),
+        total_million_tonnes: latest.total != null ? round(latest.total, 2) : null,
+        history,
         source: 'Our World in Data (Global Carbon Budget)',
       };
     }
-    console.log(`  ✓ CO2: ${Object.keys(out).length} countries`);
+    console.log(`  ✓ CO2: ${Object.keys(out).length} countries (+history)`);
   } catch (e) {
     console.warn(`  ✗ CO2 failed: ${e.message}`);
   }
+  return out;
+}
+
+// --------------------------------------------------------------------------
+// Charging stations (optional) — pulled from OpenChargeMap if an API key is
+// provided via the OPENCHARGEMAP_KEY environment variable. The free tier is
+// rate-limited, so this loader skips silently when the key is absent.
+// --------------------------------------------------------------------------
+
+async function loadChargingStationCounts(geo) {
+  const key = process.env.OPENCHARGEMAP_KEY;
+  if (!key) {
+    console.log('\n[Charging stations] OPENCHARGEMAP_KEY not set — skipping (optional)');
+    return {};
+  }
+  console.log('\n[Charging stations] OpenChargeMap (per-country counts)...');
+  const out = {};
+  const iso2s = Object.keys(geo.byIso2).slice(0, 80);
+  for (const iso2 of iso2s) {
+    try {
+      const url = `https://api.openchargemap.io/v3/poi/?countrycode=${iso2}&maxresults=5000&compact=true&verbose=false&output=json&statustypeid=50`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'world-infra-hub/1.0', 'X-API-Key': key },
+      });
+      if (!res.ok) continue;
+      const rows = await res.json();
+      if (Array.isArray(rows)) {
+        out[iso2] = { operational_stations: rows.length, source: 'OpenChargeMap' };
+      }
+      await new Promise((r) => setTimeout(r, 250));
+    } catch {
+      /* best effort */
+    }
+  }
+  console.log(`  ✓ Charging stations: ${Object.keys(out).length} countries`);
   return out;
 }
 
@@ -516,6 +611,8 @@ async function main() {
   const ev = deriveEvCharging(electricity);
   const co2 = await loadCO2(geo);
   const wb = await loadWorldBankIndicators(geo);
+  const gridCO2 = await loadGridCO2Intensity(geo);
+  const charging = await loadChargingStationCounts(geo);
   const happiness = {}; // OWID mirror moved; re-enable when a stable feed is found
 
   const isoSet = new Set([
@@ -523,6 +620,7 @@ async function main() {
     ...Object.keys(electricity),
     ...Object.keys(ev),
     ...Object.keys(co2),
+    ...Object.keys(gridCO2),
     ...Object.keys(wb),
     ...Object.keys(happiness),
   ]);
@@ -541,7 +639,9 @@ async function main() {
       electricity: electricity[iso2] ?? null,
       ev: ev[iso2] ?? null,
       co2: co2[iso2] ?? null,
+      gridCO2: gridCO2[iso2] ?? null,
       worldBank: wb[iso2] ?? null,
+      chargingStations: charging[iso2] ?? null,
       happiness: happiness[iso2] ?? null,
     });
   }
@@ -565,7 +665,9 @@ async function main() {
       electricity: Object.keys(electricity).length,
       ev: Object.keys(ev).length,
       co2: Object.keys(co2).length,
+      gridCO2: Object.keys(gridCO2).length,
       worldBank: Object.keys(wb).length,
+      chargingStations: Object.keys(charging).length,
       happiness: Object.keys(happiness).length,
     },
     countries,

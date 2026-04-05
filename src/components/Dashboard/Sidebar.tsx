@@ -9,6 +9,7 @@ import type {
 } from '../../types';
 import { DATASETS } from '../../types';
 import ApiLibraryModal from './ApiLibraryModal';
+import Sparkline from './Sparkline';
 import TripCalculator from '../Trip/TripCalculator';
 
 interface Props {
@@ -222,39 +223,85 @@ function CountryDetail({ c }: { c: Country }) {
       {c.ev && (
         <Row label="🔌 EV home / fast" value={`$${c.ev.home_usd_per_100km} · $${c.ev.public_fast_usd_per_100km} per 100 km`} />
       )}
+      {c.gridCO2 && (
+        <Row label={`⚡ Grid CO₂ (${c.gridCO2.year})`} value={`${c.gridCO2.gco2_per_kwh} g / kWh`} />
+      )}
       {c.co2 && (
-        <Row label={`🌱 CO₂ (${c.co2.year})`} value={`${c.co2.tonnes_per_capita} t / person`} />
+        <Row
+          label={`🌱 CO₂ per capita (${c.co2.year})`}
+          value={`${c.co2.tonnes_per_capita} t`}
+          history={c.co2.history}
+        />
       )}
       {c.worldBank?.gdp_per_capita_usd && (
-        <Row label={`💰 GDP / capita (${c.worldBank.gdp_per_capita_usd.year})`} value={`$${Math.round(c.worldBank.gdp_per_capita_usd.value).toLocaleString()}`} />
+        <Row
+          label={`💰 GDP / capita (${c.worldBank.gdp_per_capita_usd.year})`}
+          value={`$${Math.round(c.worldBank.gdp_per_capita_usd.value).toLocaleString()}`}
+          history={c.worldBank.gdp_per_capita_usd.history}
+        />
       )}
       {c.worldBank?.life_expectancy_years && (
-        <Row label={`🫀 Life expectancy (${c.worldBank.life_expectancy_years.year})`} value={`${c.worldBank.life_expectancy_years.value.toFixed(1)} yrs`} />
+        <Row
+          label={`🫀 Life expectancy (${c.worldBank.life_expectancy_years.year})`}
+          value={`${c.worldBank.life_expectancy_years.value.toFixed(1)} yrs`}
+          history={c.worldBank.life_expectancy_years.history}
+        />
       )}
       {c.worldBank?.internet_users_pct && (
-        <Row label={`🌐 Internet users (${c.worldBank.internet_users_pct.year})`} value={`${c.worldBank.internet_users_pct.value.toFixed(1)} %`} />
+        <Row
+          label={`🌐 Internet users (${c.worldBank.internet_users_pct.year})`}
+          value={`${c.worldBank.internet_users_pct.value.toFixed(1)} %`}
+          history={c.worldBank.internet_users_pct.history}
+        />
       )}
       {c.worldBank?.renewable_electricity_pct && (
-        <Row label={`♻️ Renewables (${c.worldBank.renewable_electricity_pct.year})`} value={`${c.worldBank.renewable_electricity_pct.value.toFixed(1)} %`} />
+        <Row
+          label={`♻️ Renewables (${c.worldBank.renewable_electricity_pct.year})`}
+          value={`${c.worldBank.renewable_electricity_pct.value.toFixed(1)} %`}
+          history={c.worldBank.renewable_electricity_pct.history}
+        />
       )}
       {c.worldBank?.gini_index && (
-        <Row label={`⚖️ Gini (${c.worldBank.gini_index.year})`} value={c.worldBank.gini_index.value.toFixed(1)} />
+        <Row
+          label={`⚖️ Gini (${c.worldBank.gini_index.year})`}
+          value={c.worldBank.gini_index.value.toFixed(1)}
+          history={c.worldBank.gini_index.history}
+        />
       )}
       {c.worldBank?.unemployment_pct && (
-        <Row label={`📉 Unemployment (${c.worldBank.unemployment_pct.year})`} value={`${c.worldBank.unemployment_pct.value.toFixed(1)} %`} />
+        <Row
+          label={`📉 Unemployment (${c.worldBank.unemployment_pct.year})`}
+          value={`${c.worldBank.unemployment_pct.value.toFixed(1)} %`}
+          history={c.worldBank.unemployment_pct.history}
+        />
       )}
       {c.worldBank?.inflation_pct && (
-        <Row label={`📈 Inflation (${c.worldBank.inflation_pct.year})`} value={`${c.worldBank.inflation_pct.value.toFixed(1)} %`} />
+        <Row
+          label={`📈 Inflation (${c.worldBank.inflation_pct.year})`}
+          value={`${c.worldBank.inflation_pct.value.toFixed(1)} %`}
+          history={c.worldBank.inflation_pct.history}
+        />
       )}
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  history,
+}: {
+  label: string;
+  value: string;
+  history?: Array<[number, number]>;
+}) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
-      <span style={{ color: 'var(--text-secondary)' }}>{label}</span>
-      <span style={{ color: 'var(--text-primary)', textAlign: 'right' }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12 }}>
+      <span style={{ color: 'var(--text-secondary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {history && history.length >= 2 && <Sparkline data={history} />}
+        <span style={{ color: 'var(--text-primary)', textAlign: 'right', whiteSpace: 'nowrap' }}>{value}</span>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 {
   "name": "world-infrastructure-data-hub",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Interactive world map of retail fuel prices, electricity prices, EV charging costs and CO2 emissions, aggregated from open government and inter-governmental data sources.",
   "license": "MIT",
   "type": "module",

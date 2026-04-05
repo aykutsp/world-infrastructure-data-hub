@@ -1,0 +1,20 @@
+name: world_infra_data
+description: Dart/Flutter client for the World Infrastructure Data Hub open data API.
+version: 1.0.0
+homepage: https://aykutsp.github.io/world-infrastructure-data-hub/
+repository: https://github.com/aykutsp/world-infrastructure-data-hub
+issue_tracker: https://github.com/aykutsp/world-infrastructure-data-hub/issues
+topics:
+  - open-data
+  - world
+  - energy
+  - fuel
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  http: ^1.2.0
+
+dev_dependencies:
+  lints: ^4.0.0

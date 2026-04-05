@@ -24,6 +24,18 @@ export interface CO2Block {
   year: number;
   tonnes_per_capita: number;
   total_million_tonnes: number | null;
+  history?: Array<[number, number]>;
+  source?: string;
+}
+
+export interface GridCO2Block {
+  gco2_per_kwh: number;
+  year: number;
+  source?: string;
+}
+
+export interface ChargingStationsBlock {
+  operational_stations: number;
   source?: string;
 }
 
@@ -31,6 +43,7 @@ export interface WBIndicator {
   value: number;
   year: number;
   source?: string;
+  history?: Array<[number, number]>;
 }
 
 export interface WorldBankBlock {
@@ -54,7 +67,9 @@ export interface Country {
   electricity: ElectricityBlock | null;
   ev: EvBlock | null;
   co2: CO2Block | null;
+  gridCO2: GridCO2Block | null;
   worldBank: WorldBankBlock | null;
+  chargingStations?: ChargingStationsBlock | null;
 }
 
 export interface Dataset {
@@ -83,6 +98,7 @@ export type DatasetKey =
   | 'ev.home'
   | 'ev.public'
   | 'co2'
+  | 'grid.co2'
   | 'wb.gdp'
   | 'wb.life'
   | 'wb.internet'
@@ -119,6 +135,7 @@ export const DATASETS: DatasetSpec[] = [
 
   // Energy & environment
   { key: 'co2',            group: 'energy', label: 'CO₂ per capita',       shortLabel: 'CO₂',         unit: 't / person / yr', higherIsWorse: true,  extract: (c) => c.co2?.tonnes_per_capita ?? null },
+  { key: 'grid.co2',       group: 'energy', label: 'Grid CO₂ intensity',  shortLabel: 'Grid CO₂',   unit: 'gCO₂ / kWh',       higherIsWorse: true,  extract: (c) => c.gridCO2?.gco2_per_kwh ?? null },
   { key: 'wb.renewables',  group: 'energy', label: 'Renewable electricity share', shortLabel: 'Renewables', unit: '% of total',    higherIsWorse: false, extract: (c) => c.worldBank?.renewable_electricity_pct?.value ?? null },
 
   // Society & economy
