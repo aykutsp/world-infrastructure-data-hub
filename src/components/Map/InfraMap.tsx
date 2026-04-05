@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, GeoJSON, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, GeoJSON, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { Feature, FeatureCollection, Geometry } from 'geojson';
-import type { Country, Dataset, DatasetKey, ThemeType } from '../../types';
+import type { Country, Dataset, DatasetKey, ThemeType, TripResult, ViewMode } from '../../types';
 import { DATASETS } from '../../types';
 
 interface Props {
@@ -12,12 +12,19 @@ interface Props {
   selected: Country | null;
   onSelect: (c: Country | null) => void;
   theme: ThemeType;
+  view: ViewMode;
+  compareIds: string[];
+  trip: TripResult | null;
 }
 
 // Reuse the same 7-bin sequential ramp as the predecessor project, only keyed
 // to the dataset's global P10 / P90 range rather than to the world mean, so
 // small-range metrics (CO2 per capita) and wide-range metrics (EV public
 // charging) both spread across the whole palette.
+function invert(t: number | null): number | null {
+  return t == null ? null : 1 - t;
+}
+
 function bucketColor(t: number | null): string {
   if (t == null || !isFinite(t)) return '#2b2f36';
   if (t < 0.15) return '#006837';
@@ -29,15 +36,25 @@ function bucketColor(t: number | null): string {
   return '#a50026';
 }
 
-const MapFlyTo = ({ selected }: { selected: Country | null }) => {
+const MapFlyTo = ({
+  selected, trip,
+}: {
+  selected: Country | null;
+  trip: TripResult | null;
+}) => {
   const map = useMap();
   useEffect(() => {
+    if (trip && trip.polyline.length > 1) {
+      const bounds = L.latLngBounds(trip.polyline.map((p) => L.latLng(p[0], p[1])));
+      map.fitBounds(bounds, { padding: [60, 60], animate: true, duration: 1.2 });
+      return;
+    }
     if (selected) {
       map.setView([selected.lat, selected.lng], 5, { animate: true, duration: 1.2 });
     } else {
       map.setView([25, 0], 2, { animate: true, duration: 1.2 });
     }
-  }, [selected, map]);
+  }, [selected, map, trip]);
   return null;
 };
 
@@ -66,9 +83,12 @@ function buildLabelIcon(name: string, value: string, showName: boolean): L.DivIc
   });
 }
 
-export default function InfraMap({ data, borders, activeDataset, selected, onSelect, theme }: Props) {
+export default function InfraMap({
+  data, borders, activeDataset, selected, onSelect, theme, view, compareIds, trip,
+}: Props) {
   const [zoom] = useState(2);
   const [currentZoom, setCurrentZoom] = useState(2);
+  void view;
 
   const spec = useMemo(
     () => DATASETS.find((d) => d.key === activeDataset) ?? DATASETS[0],
@@ -108,6 +128,8 @@ export default function InfraMap({ data, borders, activeDataset, selected, onSel
     return String(p.ISO_A2_EH || p.ISO_A2 || p.iso_a2 || '').toUpperCase();
   };
 
+  const compareSet = new Set(compareIds.map((x) => x.toUpperCase()));
+
   const styleFor = (feature?: Feature<Geometry, any>) => {
     if (!feature) {
       return { weight: 0.5, color: '#444', fillColor: '#2b2f36', fillOpacity: 0.1 };
@@ -115,11 +137,12 @@ export default function InfraMap({ data, borders, activeDataset, selected, onSel
     const iso2 = featureIso2(feature);
     const country = countryById.get(iso2);
     const raw = country ? spec.extract(country) : null;
-    const t = normalise(raw);
+    const t = spec.higherIsWorse ? normalise(raw) : invert(normalise(raw));
     const isSelected = selected && selected.id === iso2;
+    const inCompare = compareSet.has(iso2);
     return {
-      weight: isSelected ? 2 : 0.6,
-      color: isSelected ? '#fff' : '#0006',
+      weight: isSelected || inCompare ? 2.2 : 0.6,
+      color: inCompare ? '#fde68a' : isSelected ? '#fff' : '#0006',
       fillColor: bucketColor(t),
       fillOpacity: country && raw != null ? 0.7 : 0.08,
     };
@@ -178,7 +201,7 @@ export default function InfraMap({ data, borders, activeDataset, selected, onSel
         zoomControl={false}
         worldCopyJump
       >
-        <MapFlyTo selected={selected} />
+        <MapFlyTo selected={selected} trip={trip} />
         <ZoomTracker onZoom={setCurrentZoom} />
         <TileLayer
           key={theme}
@@ -187,6 +210,20 @@ export default function InfraMap({ data, borders, activeDataset, selected, onSel
         />
         {borders && (
           <GeoJSON key={layerKey} data={borders} style={styleFor as any} onEachFeature={onEachFeature} />
+        )}
+        {trip && trip.polyline.length > 1 && (
+          <>
+            <Polyline positions={trip.polyline} pathOptions={{ color: '#ffffff', weight: 6, opacity: 0.35 }} />
+            <Polyline positions={trip.polyline} pathOptions={{ color: '#3b82f6', weight: 3.5, opacity: 0.95 }} />
+            <Marker
+              position={trip.polyline[0]}
+              icon={L.divIcon({ className: 'trip-endpoint-pin', html: '<div class="trip-pin trip-pin-from">A</div>', iconSize: [22, 22], iconAnchor: [11, 11] })}
+            />
+            <Marker
+              position={trip.polyline[trip.polyline.length - 1]}
+              icon={L.divIcon({ className: 'trip-endpoint-pin', html: '<div class="trip-pin trip-pin-to">B</div>', iconSize: [22, 22], iconAnchor: [11, 11] })}
+            />
+          </>
         )}
         {data.countries.map((c) => {
           const v = spec.extract(c);

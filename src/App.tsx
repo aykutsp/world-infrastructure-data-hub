@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import type { FeatureCollection } from 'geojson';
 import InfraMap from './components/Map/InfraMap';
 import Sidebar from './components/Dashboard/Sidebar';
-import type { Country, Dataset, DatasetKey, ThemeType } from './types';
+import type {
+  Country, Dataset, DatasetKey, ThemeType, TripResult, ViewMode,
+} from './types';
 
 function App() {
   const [data, setData] = useState<Dataset | null>(null);
@@ -10,6 +12,9 @@ function App() {
   const [activeDataset, setActiveDataset] = useState<DatasetKey>('fuel.gasoline');
   const [selected, setSelected] = useState<Country | null>(null);
   const [theme, setTheme] = useState<ThemeType>('system');
+  const [view, setView] = useState<ViewMode>('explore');
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [trip, setTrip] = useState<TripResult | null>(null);
 
   useEffect(() => {
     let effective = theme;
@@ -38,12 +43,19 @@ function App() {
     <div className="app-container">
       <Sidebar
         data={data}
+        borders={borders}
         activeDataset={activeDataset}
         setActiveDataset={setActiveDataset}
         selected={selected}
         onSelect={setSelected}
         theme={theme}
         setTheme={setTheme}
+        view={view}
+        setView={setView}
+        compareIds={compareIds}
+        setCompareIds={setCompareIds}
+        trip={trip}
+        setTrip={setTrip}
       />
       <InfraMap
         data={data}
@@ -52,6 +64,9 @@ function App() {
         selected={selected}
         onSelect={setSelected}
         theme={theme}
+        view={view}
+        compareIds={compareIds}
+        trip={trip}
       />
     </div>
   );
