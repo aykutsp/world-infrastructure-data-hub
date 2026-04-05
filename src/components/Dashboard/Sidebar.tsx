@@ -40,10 +40,20 @@ export default function Sidebar({
   theme, setTheme, view, setView, compareIds, setCompareIds, trip, setTrip,
 }: Props) {
   const [apiLibOpen, setApiLibOpen] = useState(false);
+  const [exploreQuery, setExploreQuery] = useState('');
   if (!data) return null;
 
   const spec = DATASETS.find((d) => d.key === activeDataset) ?? DATASETS[0];
   const rankedCountries = rankCountries(data, spec);
+  const normalizedQuery = exploreQuery.trim().toLowerCase();
+  const filteredRanked = normalizedQuery
+    ? rankedCountries.filter(
+        ({ c }) =>
+          c.name.toLowerCase().includes(normalizedQuery) ||
+          c.id.toLowerCase() === normalizedQuery ||
+          (c.iso3 && c.iso3.toLowerCase() === normalizedQuery),
+      )
+    : rankedCountries;
 
   return (
     <div className="sidebar glass-panel">
@@ -97,7 +107,13 @@ export default function Sidebar({
 
           <div className="search-container">
             <Search className="search-icon" />
-            <input type="text" className="search-input" placeholder="Search countries…" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search countries…"
+              value={exploreQuery}
+              onChange={(e) => setExploreQuery(e.target.value)}
+            />
           </div>
 
           <div className="list-container">
@@ -112,17 +128,23 @@ export default function Sidebar({
                 </div>
               </div>
             )}
-            {!selected
-              ? rankedCountries.map(({ c, v }) => (
-                  <div key={c.id} className="list-item" onClick={() => onSelect(c)}>
-                    <div className="list-item-left">
-                      <span className="item-name">{c.name}</span>
-                      <span className="item-region">{c.id}</span>
-                    </div>
-                    <div className="item-price">{formatValue(spec, v as number)}</div>
+            {selected ? (
+              <CountryDetail c={selected} />
+            ) : filteredRanked.length === 0 ? (
+              <div style={{ padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                No countries match "{exploreQuery}".
+              </div>
+            ) : (
+              filteredRanked.map(({ c, v }) => (
+                <div key={c.id} className="list-item" onClick={() => onSelect(c)}>
+                  <div className="list-item-left">
+                    <span className="item-name">{c.name}</span>
+                    <span className="item-region">{c.id}</span>
                   </div>
-                ))
-              : <CountryDetail c={selected} />}
+                  <div className="item-price">{formatValue(spec, v as number)}</div>
+                </div>
+              ))
+            )}
           </div>
         </>
       )}
