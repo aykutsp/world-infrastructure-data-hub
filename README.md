@@ -1,14 +1,40 @@
-# World Infrastructure Data Hub
+<div align="center">
+
+# 🌍 World Infrastructure Data Hub
+
+### One map, 15 metrics, 170 countries. Fuel, electricity, EV charging, CO₂ and 8 World Bank indicators — refreshed daily from open government data.
+
+**[🌐 Live Demo](https://aykutsp.github.io/world-infrastructure-data-hub/)** · **[📖 API Reference](#-open-data-api)** · **[📦 Client Libraries](#-client-libraries)** · **[🐛 Report Bug](https://github.com/aykutsp/world-infrastructure-data-hub/issues/new?template=bug_report.yml)** · **[💡 Request Feature](https://github.com/aykutsp/world-infrastructure-data-hub/issues/new?template=feature_request.yml)**
+
+<br />
+
+[![Deploy status](https://img.shields.io/github/actions/workflow/status/aykutsp/world-infrastructure-data-hub/deploy.yml?branch=main&style=flat-square&label=deploy&logo=githubactions&logoColor=white)](https://github.com/aykutsp/world-infrastructure-data-hub/actions/workflows/deploy.yml)
+[![Latest release](https://img.shields.io/github/v/release/aykutsp/world-infrastructure-data-hub?style=flat-square&label=release&color=blue)](https://github.com/aykutsp/world-infrastructure-data-hub/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/aykutsp/world-infrastructure-data-hub?style=flat-square&color=green)](./LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/aykutsp/world-infrastructure-data-hub?style=flat-square&color=informational)](https://github.com/aykutsp/world-infrastructure-data-hub/commits/main)
+[![Open issues](https://img.shields.io/github/issues/aykutsp/world-infrastructure-data-hub?style=flat-square)](https://github.com/aykutsp/world-infrastructure-data-hub/issues)
+[![Repo stars](https://img.shields.io/github/stars/aykutsp/world-infrastructure-data-hub?style=flat-square&logo=github)](https://github.com/aykutsp/world-infrastructure-data-hub/stargazers)
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vite.dev/)
+[![Leaflet](https://img.shields.io/badge/Leaflet-1.9-199900?style=flat-square&logo=leaflet&logoColor=white)](https://leafletjs.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-20-339933?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white)](./libraries/python)
+[![Go](https://img.shields.io/badge/Go-1.21-00ADD8?style=flat-square&logo=go&logoColor=white)](./libraries/go)
+[![Dart](https://img.shields.io/badge/Dart-3-0175C2?style=flat-square&logo=dart&logoColor=white)](./libraries/flutter)
+[![.NET](https://img.shields.io/badge/.NET-8-512BD4?style=flat-square&logo=dotnet&logoColor=white)](./libraries/csharp)
+
+[![Metrics](https://img.shields.io/badge/metrics-15-blueviolet?style=flat-square)](#-metrics--sources)
+[![Countries](https://img.shields.io/badge/countries-170-orange?style=flat-square)](#-metrics--sources)
+[![Data sources](https://img.shields.io/badge/data-9%20open%20sources-yellow?style=flat-square)](#-metrics--sources)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](./CONTRIBUTING.md)
+
+</div>
+
+---
 
 An interactive world map for the real cost of *living* and *moving*: **retail fuel prices, household electricity prices, EV charging costs, CO₂ emissions and eight World Bank indicators** — all in one place, all from open government / inter-governmental sources, all refreshed on a daily cron.
-
-🌐 **Live demo:** [aykutsp.github.io/world-infrastructure-data-hub](https://aykutsp.github.io/world-infrastructure-data-hub/)
-
-![Deploy](https://github.com/aykutsp/world-infrastructure-data-hub/actions/workflows/deploy.yml/badge.svg)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![React](https://img.shields.io/badge/React-19-61dafb.svg)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)
-![Vite](https://img.shields.io/badge/Vite-8-646cff.svg)
 
 ## 📸 Screenshots
 
