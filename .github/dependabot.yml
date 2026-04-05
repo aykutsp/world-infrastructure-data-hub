@@ -7,6 +7,18 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "deps"
+    ignore:
+      # Keep TypeScript and ESLint on the same major version as the project until
+      # we explicitly opt in — majors tend to ship breaking changes that need a
+      # manual smoke-test pass.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@eslint/js"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript-eslint"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -19,3 +31,6 @@ updates:
       interval: monthly
     commit-message:
       prefix: "deps(lib/ts)"
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
