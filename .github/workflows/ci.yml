@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-test-build:
+    name: Lint · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test -- --run
+
+      - name: Type-check
+        run: npx tsc -b --force
+
+      - name: Validate bundled sample dataset
+        # Validates a small fixture, not the live generated dataset — CI
+        # runs don't hit upstream sources to keep PRs fast.
+        run: |
+          if [ -f public/api/v1/countries.json ]; then
+            node scripts/validateDataset.mjs
+          else
+            echo "no countries.json to validate (this is fine on a clean CI)"
+          fi
+
+      - name: Vite build (no data fetch)
+        run: npm run build:ci

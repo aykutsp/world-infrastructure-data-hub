@@ -1,0 +1,61 @@
+{
+  "status": "ok",
+  "lastUpdated": "2026-04-10T19:45:46.309Z",
+  "generatorVersion": "1.2",
+  "coverage": {
+    "fuel": 130,
+    "electricity": 89,
+    "ev": 89,
+    "co2": 167,
+    "gridCO2": 169,
+    "worldBank": 167,
+    "chargingStations": 0,
+    "happiness": 0
+  },
+  "sources": [
+    {
+      "name": "Fuel",
+      "label": "Fuel: EU Weekly Oil Bulletin — CC BY 4.0"
+    },
+    {
+      "name": "Fuel (rest of world)",
+      "label": "Fuel (rest of world): World Bank Global Fuel Prices Database — ODbL"
+    },
+    {
+      "name": "Electricity (EU/EEA)",
+      "label": "Electricity (EU/EEA): Eurostat nrg_pc_204 — CC BY 4.0"
+    },
+    {
+      "name": "Electricity (non-EU)",
+      "label": "Electricity (non-EU): static fallback from IEA / WB / GlobalPetrolPrices"
+    },
+    {
+      "name": "CO2",
+      "label": "CO2: Our World in Data (Global Carbon Budget) — CC BY 4.0"
+    },
+    {
+      "name": "Socioeconomic",
+      "label": "Socioeconomic: World Bank Open Data Indicators — CC BY 4.0 (GDP per capita, population, life expectancy, internet users, renewable electricity, Gini, unemployment, inflation)"
+    },
+    {
+      "name": "Happiness",
+      "label": "Happiness: World Happiness Report 2024 (OWID mirror) — CC BY 4.0"
+    },
+    {
+      "name": "Borders",
+      "label": "Borders: Natural Earth 110m admin_0 countries — CC0"
+    },
+    {
+      "name": "Derived",
+      "label": "Derived: EV charging = household electricity × 18 kWh/100 km × 1.6 fast-charger markup"
+    }
+  ],
+  "counts": {
+    "totalCountries": 170,
+    "withFuel": 129,
+    "withElectricity": 89,
+    "withCO2": 167,
+    "withGridCO2": 169,
+    "withWorldBank": 167
+  }
+}

@@ -1,0 +1,54 @@
+name-template: 'v$RESOLVED_VERSION'
+tag-template: 'v$RESOLVED_VERSION'
+template: |
+  ## What's Changed
+
+  $CHANGES
+
+  **Full Changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION
+
+categories:
+  - title: '🚀 Features'
+    labels: ['feature', 'enhancement']
+  - title: '📊 Data sources'
+    labels: ['data']
+  - title: '🏗 Architecture'
+    labels: ['architecture', 'adr']
+  - title: '🐛 Bug fixes'
+    labels: ['bug', 'fix']
+  - title: '📦 Client libraries'
+    labels: ['libraries']
+  - title: '📚 Documentation'
+    labels: ['docs', 'documentation']
+  - title: '🔒 Security'
+    labels: ['security']
+  - title: '🧹 Chores & dependencies'
+    labels: ['chore', 'dependencies', 'deps']
+
+change-template: '- $TITLE (#$NUMBER) @$AUTHOR'
+change-title-escapes: '\<*_&'
+
+version-resolver:
+  major:
+    labels: ['major', 'breaking']
+  minor:
+    labels: ['feature', 'enhancement', 'minor']
+  patch:
+    labels: ['bug', 'fix', 'docs', 'chore', 'patch']
+  default: patch
+
+autolabeler:
+  - label: 'docs'
+    files: ['docs/**/*', '*.md', 'README.md']
+  - label: 'data'
+    files: ['scripts/generateData.js', 'schemas/**/*']
+  - label: 'architecture'
+    files: ['docs/architecture/**/*']
+  - label: 'libraries'
+    files: ['libraries/**/*']
+  - label: 'chore'
+    branch: ['/^chore\/.*/']
+  - label: 'bug'
+    title: ['/fix:/i']
+  - label: 'feature'
+    title: ['/feat:/i']

@@ -434,6 +434,58 @@ Language-specific wrappers live under [`libraries/`](./libraries/). All five exp
 | Dart / Flutter | `world_infra_data` (pub.dev) | `dart pub add world_infra_data` | [`libraries/flutter`](./libraries/flutter) |
 | .NET 8+ | `WorldInfraData` (NuGet) | `dotnet add package WorldInfraData` | [`libraries/csharp`](./libraries/csharp) |
 
+## 🏛 Architecture & engineering practices
+
+This project is built to be understood, not just to run. The engineering reference lives under [`docs/architecture/`](./docs/architecture/) and is structured the same way any serious production service is:
+
+| Document | What's in it |
+|---|---|
+| [`docs/architecture/overview.md`](./docs/architecture/overview.md) | C4-model system context + container diagrams (Mermaid) |
+| [`docs/architecture/data-flow.md`](./docs/architecture/data-flow.md) | End-to-end walkthrough of one number travelling from upstream to map |
+| [`docs/architecture/adr/`](./docs/architecture/adr/) | **7 Architecture Decision Records** covering the load-bearing decisions |
+| [`docs/paid-upgrades.md`](./docs/paid-upgrades.md) | Per-source paid alternatives with cost + effort estimates |
+| [`docs/runbooks/`](./docs/runbooks/) | Step-by-step operational procedures (new country, new metric, upstream failure, release, rollback) |
+
+### The ADRs at a glance
+
+1. **[Static-first architecture](./docs/architecture/adr/0001-static-first-architecture.md)** — why GitHub Pages + cron and not a backend
+2. **[Unified and per-country dataset shape](./docs/architecture/adr/0002-unified-and-per-country-dataset-shape.md)** — fat file and thin files, not either/or
+3. **[Trip calculator runs client-side](./docs/architecture/adr/0003-trip-calculator-runs-client-side.md)** — why the browser owns routing and geocoding
+4. **[Raw response archival + replay](./docs/architecture/adr/0004-raw-response-archival-and-replay.md)** — bug fixes without re-hitting upstream APIs
+5. **[Free-data-first, with paid upgrade paths](./docs/architecture/adr/0005-free-data-first-with-paid-upgrade-paths.md)** — policy + on-ramp for teams with a budget
+6. **[Client libraries are thin wrappers](./docs/architecture/adr/0006-client-library-strategy.md)** — not an SDK, on purpose
+7. **[API versioning and stability pledge](./docs/architecture/adr/0007-api-versioning-and-stability-pledge.md)** — what `v1` actually promises
+
+### Quality gates
+
+Everything you'd expect from a serious codebase, enforced in CI on every pull request:
+
+| Gate | Tool | Where |
+|---|---|---|
+| Unit tests | Vitest | [`test/helpers.test.mjs`](./test/helpers.test.mjs) — 18 tests covering CSV parsing, XML escaping, Haversine, point-in-polygon, `round()` |
+| Type-check | `tsc -b --force` | All TS strict, zero errors |
+| Lint | ESLint + typescript-eslint | `npm run lint` |
+| **Schema validation** | [AJV](https://ajv.js.org/) against [`schemas/countries.schema.json`](./schemas/countries.schema.json) | Runs as the final step of `generate-data`. **A schema mismatch fails the build**, which means the live site stays on the last known good dataset |
+| Security scan | [CodeQL](./.github/workflows/codeql.yml) with `security-extended` queries | Every PR + weekly |
+| Dependency updates | Dependabot | Weekly, major bumps for TS/ESLint held back until manually reviewed |
+| Release notes | [Release Drafter](./.github/release-drafter.yml) | Auto-drafted from PR labels on every merge to main |
+
+### One-command quality check
+
+```bash
+make release-check
+# runs: test → typecheck → lint → validate → build
+```
+
+If that's green locally, the CI build will be green too.
+
+### Observability you get for free
+
+- `GET /api/v1/countries.json` — the canonical dataset with `lastUpdated` and `coverage` blocks
+- `GET /api/v1/health.json` — per-source freshness + row counts, suitable for an uptime dashboard
+- Every deploy is tagged; every tag is a reproducible build from a specific `main` SHA
+- Every upstream source is listed in `countries.json`'s `sources` field so attribution is machine-readable
+
 ## 📜 Changelog
 
 **v1.1.0** — Grid CO₂ intensity (gCO₂/kWh) from OWID/Ember energy data as a 15th metric, 15-year historical time-series for CO₂ and the eight World Bank indicators, inline SVG sparklines next to every historical metric in the country detail panel, five official client libraries under `libraries/` (npm, PyPI, Go modules, Flutter, NuGet), optional OpenChargeMap charging-station count loader (activates automatically when `OPENCHARGEMAP_KEY` is set in the CI environment).

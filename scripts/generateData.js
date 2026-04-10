@@ -19,7 +19,16 @@
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import XLSX from 'xlsx';
+import {
+  round,
+  parseCsv,
+  parseCsvLine,
+} from './lib/helpers.mjs';
+// Re-exports so the legacy inline call sites below still resolve.
+void parseCsvLine;
 
 const EU_FUEL_BULLETIN_URL =
   'https://energy.ec.europa.eu/document/download/264c2d0f-f161-4ea3-a777-78faae59bea0_en';
@@ -86,38 +95,10 @@ async function fetchText(url) {
   return await res.text();
 }
 
-function round(n, d = 3) {
-  if (n == null || !isFinite(n)) return null;
-  return Number(Number(n).toFixed(d));
-}
-
-function parseCsvLine(line) {
-  const out = [];
-  let cur = '';
-  let inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQ) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else inQ = false;
-      } else cur += ch;
-    } else if (ch === ',') {
-      out.push(cur);
-      cur = '';
-    } else if (ch === '"') {
-      inQ = true;
-    } else {
-      cur += ch;
-    }
-  }
-  out.push(cur);
-  return out;
-}
-
-function parseCsv(text) {
+// round / parseCsv / parseCsvLine are now imported from ./lib/helpers.mjs
+// and unit-tested in test/helpers.test.mjs. Kept only as a guard against
+// accidental re-definition.
+function _legacy_parseCsv_unused_stub(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
   if (lines.length === 0) return { header: [], rows: [] };
   const header = parseCsvLine(lines[0]);
@@ -676,12 +657,49 @@ async function main() {
   fs.writeFileSync(path.join(apiDir, 'countries.json'), JSON.stringify(payload));
   fs.writeFileSync(path.join(apiDir, 'countries.geojson'), geo.raw);
 
+  // health.json — lightweight status artifact for uptime dashboards and
+  // programmatic freshness checks. Kept deliberately small.
+  const health = {
+    status: 'ok',
+    lastUpdated: payload.lastUpdated,
+    generatorVersion: '1.2',
+    coverage: payload.coverage,
+    sources: payload.sources.map((label) => {
+      const [name] = label.split(':');
+      return { name: name.trim(), label };
+    }),
+    counts: {
+      totalCountries: countries.length,
+      withFuel: countries.filter((c) => c.fuel).length,
+      withElectricity: countries.filter((c) => c.electricity).length,
+      withCO2: countries.filter((c) => c.co2).length,
+      withGridCO2: countries.filter((c) => c.gridCO2).length,
+      withWorldBank: countries.filter((c) => c.worldBank).length,
+    },
+  };
+  fs.writeFileSync(path.join(apiDir, 'health.json'), JSON.stringify(health, null, 2));
+
   console.log(
     `\n✅ Wrote ${countries.length} countries to api/v1/countries.json`
   );
   console.log(
     `   fuel=${payload.coverage.fuel}  electricity=${payload.coverage.electricity}  ev=${payload.coverage.ev}  co2=${payload.coverage.co2}  wb=${payload.coverage.worldBank}  happiness=${payload.coverage.happiness}`
   );
+
+  // Validate the output against schemas/countries.schema.json. Fails the
+  // build if the output drifted from the declared shape — see ADR-0007.
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const validatorPath = path.resolve(here, 'validateDataset.mjs');
+  if (fs.existsSync(validatorPath)) {
+    console.log('\n[Validate] countries.json vs schemas/countries.schema.json...');
+    const result = spawnSync(process.execPath, [validatorPath], {
+      stdio: 'inherit',
+    });
+    if (result.status !== 0) {
+      console.error('Schema validation failed; refusing to publish.');
+      process.exit(result.status ?? 1);
+    }
+  }
 }
 
 main().catch((e) => {
