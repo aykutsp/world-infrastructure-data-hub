@@ -137,7 +137,7 @@ export default function TripCalculator({ data, borders, trip, setTrip }: Props) 
     };
   };
 
-  const useCurrent = async (id: string) => {
+  const grabCurrentLocation = async (id: string) => {
     if (!('geolocation' in navigator)) {
       setError('Geolocation is not available in this browser.');
       return;
@@ -163,8 +163,8 @@ export default function TripCalculator({ data, borders, trip, setTrip }: Props) 
         }
       } catch { /* ignore */ }
       updateWp(id, { text: label, point: { label, lat: latitude, lng: longitude } });
-    } catch (e: any) {
-      setError(e?.message || 'Failed to get current location.');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to get current location.');
     } finally {
       setLoading('idle');
     }
@@ -187,8 +187,8 @@ export default function TripCalculator({ data, borders, trip, setTrip }: Props) 
       setLoading('routing');
       const result = await routeAndPrice(resolved, mode, data, borders);
       setTrip(result);
-    } catch (e: any) {
-      setError(e?.message || 'Something went wrong.');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
       setTrip(null);
     } finally {
       setLoading('idle');
@@ -200,18 +200,18 @@ export default function TripCalculator({ data, borders, trip, setTrip }: Props) 
       <div className="trip-form">
         <WpRow wp={from} label="From" loading={loading !== 'idle'}
           onText={(t) => updateWp(from.id, { text: t })}
-          onLocate={() => useCurrent(from.id)} />
+          onLocate={() => grabCurrentLocation(from.id)} />
 
         {stops.map((s, i) => (
           <WpRow key={s.id} wp={s} label={`Stop ${i + 1}`} loading={loading !== 'idle'}
             onText={(t) => updateWp(s.id, { text: t })}
-            onLocate={() => useCurrent(s.id)}
+            onLocate={() => grabCurrentLocation(s.id)}
             onRemove={() => removeStop(s.id)} />
         ))}
 
         <WpRow wp={to} label="To" loading={loading !== 'idle'}
           onText={(t) => updateWp(to.id, { text: t })}
-          onLocate={() => useCurrent(to.id)} />
+          onLocate={() => grabCurrentLocation(to.id)} />
 
         <button type="button" className="trip-add-stop" onClick={addStop}
           disabled={loading !== 'idle' || stopCount >= MAX_STOPS}>
@@ -566,16 +566,18 @@ function featureBBox(feature: Feature): [number, number, number, number] | null 
     return null;
   }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  const walk = (coords: any) => {
-    if (typeof coords[0] === 'number') {
-      const [x, y] = coords;
+  type Pos = [number, number] | number[];
+  type Nested = Pos | Nested[];
+  const walk = (coords: Nested): void => {
+    if (typeof (coords as number[])[0] === 'number') {
+      const [x, y] = coords as number[];
       if (x < minX) minX = x;
       if (y < minY) minY = y;
       if (x > maxX) maxX = x;
       if (y > maxY) maxY = y;
       return;
     }
-    for (const c of coords) walk(c);
+    for (const c of coords as Nested[]) walk(c);
   };
   if ('coordinates' in g && g.coordinates) walk(g.coordinates);
   const bbox: [number, number, number, number] | null = isFinite(minX) ? [minX, minY, maxX, maxY] : null;
@@ -590,9 +592,9 @@ function findCountry(lng: number, lat: number, borders: FeatureCollection | null
     if (!bbox) continue;
     if (lng < bbox[0] || lng > bbox[2] || lat < bbox[1] || lat > bbox[3]) continue;
     if (pointInFeature(lng, lat, feature)) {
-      const p: any = feature.properties || {};
-      const iso2 = (p.ISO_A2_EH || p.ISO_A2 || '').toUpperCase();
-      const name = p.NAME || p.ADMIN || iso2 || 'Unknown';
+      const p = (feature.properties ?? {}) as Record<string, unknown>;
+      const iso2 = String(p.ISO_A2_EH ?? p.ISO_A2 ?? '').toUpperCase();
+      const name = (p.NAME as string) || (p.ADMIN as string) || iso2 || 'Unknown';
       return { id: iso2 || name, name };
     }
   }

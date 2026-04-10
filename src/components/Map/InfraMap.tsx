@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, GeoJSON, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import type { Feature, FeatureCollection, Geometry } from 'geojson';
+import type { Feature, FeatureCollection, Geometry, GeoJsonProperties } from 'geojson';
+import type { PathOptions, StyleFunction } from 'leaflet';
 import type { Country, Dataset, DatasetKey, ThemeType, TripResult, ViewMode } from '../../types';
 import { DATASETS } from '../../types';
 
@@ -152,16 +153,16 @@ export default function InfraMap({
 
   if (!data) return <div className="map-container">Loading dataset…</div>;
 
-  const featureIso2 = (feature: Feature<Geometry, any>): string => {
-    const p = feature.properties || {};
-    return String(p.ISO_A2_EH || p.ISO_A2 || p.iso_a2 || '').toUpperCase();
+  const featureIso2 = (feature: Feature<Geometry, GeoJsonProperties>): string => {
+    const p = (feature.properties ?? {}) as Record<string, unknown>;
+    return String(p.ISO_A2_EH ?? p.ISO_A2 ?? p.iso_a2 ?? '').toUpperCase();
   };
 
   const compareSet = new Set(compareIds.map((x) => x.toUpperCase()));
 
-  const styleFor = (feature?: Feature<Geometry, any>) => {
+  const styleFor: StyleFunction<GeoJsonProperties> = (feature) => {
     if (!feature) {
-      return { weight: 0.5, color: '#444', fillColor: '#2b2f36', fillOpacity: 0.1 };
+      return { weight: 0.5, color: '#444', fillColor: '#2b2f36', fillOpacity: 0.1 } as PathOptions;
     }
     const iso2 = featureIso2(feature);
     const country = countryById.get(iso2);
@@ -177,10 +178,11 @@ export default function InfraMap({
     };
   };
 
-  const onEachFeature = (feature: Feature<Geometry, any>, layer: L.Layer) => {
+  const onEachFeature = (feature: Feature<Geometry, GeoJsonProperties>, layer: L.Layer) => {
     const iso2 = featureIso2(feature);
     const country = countryById.get(iso2);
-    const name = feature.properties?.NAME || iso2;
+    const props = (feature.properties ?? {}) as Record<string, unknown>;
+    const name = (props.NAME as string) || iso2;
     if (country) {
       const v = spec.extract(country);
       const html = `
@@ -238,7 +240,7 @@ export default function InfraMap({
           attribution="&copy; OpenStreetMap contributors &copy; CARTO · Data: EC, World Bank, OWID/IEA, Global Carbon Budget"
         />
         {borders && (
-          <GeoJSON key={layerKey} data={borders} style={styleFor as any} onEachFeature={onEachFeature} />
+          <GeoJSON key={layerKey} data={borders} style={styleFor} onEachFeature={onEachFeature} />
         )}
         {trip && trip.polyline.length > 1 && (
           <>
