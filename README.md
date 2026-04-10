@@ -227,6 +227,190 @@ for c in by_life[:10]:
 └── vite.config.ts
 ```
 
+## 🏗 System design: scaling to 1M+ users
+
+The live site currently runs as a static bundle on GitHub Pages with a daily-refreshed dataset — a setup that comfortably handles a few tens of thousands of monthly visitors. This section walks through what the architecture looks like today, where the bottlenecks are, and the concrete plan for taking the same experience to **1 million monthly active users and beyond**.
+
+### Today's architecture
+
+```
+                            ┌────────────────────────────┐
+                            │  9 upstream open-data APIs │
+                            │  (EC, Eurostat, WB, OWID,  │
+                            │   OCM, Natural Earth …)    │
+                            └──────────────┬─────────────┘
+                                           │  daily (06:25 UTC)
+                                           ▼
+                            ┌────────────────────────────┐
+                            │  GitHub Actions cron       │
+                            │  scripts/generateData.js   │
+                            │  → countries.json          │
+                            │  → trips/*.json            │
+                            └──────────────┬─────────────┘
+                                           │
+                                           ▼
+                            ┌────────────────────────────┐
+                            │  GitHub Pages (CDN fronted)│
+                            │  /api/v1/*  +  built site  │
+                            └──────────────┬─────────────┘
+                                           │
+                     ┌─────────────────────┼──────────────────────┐
+                     ▼                     ▼                      ▼
+            ┌────────────────┐   ┌────────────────┐    ┌────────────────┐
+            │ Browser SPA    │   │ Client library │    │ Raw API user   │
+            │ (React+Leaflet)│   │ (npm/PyPI/Go…) │    │ (curl, jq, BI) │
+            └────────────────┘   └────────────────┘    └────────────────┘
+                     │
+                     ├── Nominatim (public, 1 req/s)   ◀── geocoding
+                     └── OSRM public demo             ◀── routing
+```
+
+A single request chain for the trip calculator looks like: **browser → Nominatim (2×) → OSRM → countries.json → client-side point-in-polygon → render**. Everything except the last two steps depends on third-party public services with strict rate limits.
+
+### Bottlenecks at scale
+
+| # | Layer | Soft ceiling | Fails at |
+|---|---|---|---|
+| 1 | **GitHub Pages bandwidth** | ~100 GB / month | ~200k daily page loads |
+| 2 | **Nominatim public instance** | 1 req/s per IP, fair-use only | First trip calculator spike |
+| 3 | **OSRM demo server** (`router.project-osrm.org`) | Community-run, best-effort only | Regular production use |
+| 4 | **Dataset freshness** | Once per day | Use cases needing hourly updates |
+| 5 | **Single CDN region** | GitHub Pages edges work but you can't purge/warm | Latency spikes outside US/EU |
+| 6 | **Cold country boundary resolution** | Point-in-polygon runs in the browser against a 250 KB GeoJSON | CPU hit on low-end mobile |
+
+### Target architecture for 1M+ MAU
+
+```mermaid
+flowchart TB
+    subgraph Edge["Edge (global CDN)"]
+        CDN["Cloudflare / Fastly<br/>15 min TTL · br + gzip"]
+        WAF["WAF + rate limiter<br/>1000 req/min per IP"]
+    end
+
+    subgraph Static["Static dataset layer"]
+        R2["Object storage (R2 / S3)<br/>countries.json<br/>countries/{ISO}.json<br/>trips/{slug}.json<br/>countries.geojson"]
+        Versioned["Versioned keys<br/>v{timestamp}.json<br/>latest → atomic alias"]
+    end
+
+    subgraph Pipeline["Data pipeline"]
+        Scheduler["Workflow engine<br/>Temporal / EventBridge"]
+        Fetchers["Per-source workers<br/>EC · Eurostat · WB · OWID · EIA · OCM"]
+        Normalizer["Normalize + merge<br/>schema validation · delta diff"]
+        RawArchive["Raw response archive<br/>(immutable)"]
+    end
+
+    subgraph Dynamic["Dynamic services"]
+        Geo["Geo-DNS router"]
+        OSRMEU["Self-hosted OSRM<br/>EU-Central"]
+        OSRMUS["Self-hosted OSRM<br/>US-East"]
+        OSRMSEA["Self-hosted OSRM<br/>Asia-SEA"]
+        Nom["Self-hosted Nominatim<br/>planet.osm.pbf"]
+    end
+
+    subgraph Cache["Cache"]
+        Redis["Redis cluster<br/>trip result cache<br/>key = hash(from, to, stops, mode)<br/>TTL = 1h"]
+    end
+
+    subgraph Observe["Observability"]
+        OTEL["OpenTelemetry traces"]
+        Prom["Prometheus + Grafana"]
+        Sentry["Sentry (frontend)"]
+        SLO["SLO alerting<br/>feed health · cache hit · p99"]
+    end
+
+    Users["1M+ MAU browsers"] --> CDN
+    Libs["Client libraries"] --> CDN
+    CDN --> WAF
+    WAF --> R2
+    WAF --> Redis
+    Redis -->|miss| Geo
+    Geo --> OSRMEU
+    Geo --> OSRMUS
+    Geo --> OSRMSEA
+    Geo --> Nom
+
+    Scheduler --> Fetchers
+    Fetchers --> RawArchive
+    Fetchers --> Normalizer
+    Normalizer --> Versioned
+    Versioned --> R2
+
+    Fetchers --> OTEL
+    Normalizer --> OTEL
+    OSRMEU --> OTEL
+    OTEL --> Prom
+    Prom --> SLO
+```
+
+### Layer-by-layer scaling strategy
+
+**1. Edge & CDN.** Front the public endpoints with Cloudflare (or Fastly / CloudFront). Pull from an object store (R2 / S3) rather than a git branch so cache purges become a 1-second control-plane call. Brotli + gzip encoding shaves the 470 KB dataset to ~110 KB. Edge TTL of 15 minutes matches realistic upstream refresh cadence without hammering origin.
+
+**2. Split the dataset.** A single `countries.json` is fine for the choropleth but wasteful for a library user who only needs Germany. Publish one fat file **and** 170 tiny per-country files (`countries/{ISO}.json`). Clients pick the shape that fits their query pattern. Per-country files average ~2 KB, compress to ~800 B each.
+
+**3. Dedicated data pipeline.** Replace the GitHub Actions cron with a proper workflow engine (Temporal, EventBridge + Lambda, or Cloudflare Cron Workers). Every upstream source runs as its own job with idempotent retries and a dead-letter queue. Raw responses land in immutable object storage — normalization becomes replayable after a bug fix without re-hitting upstream APIs. Versioned output keys (`v{timestamp}.json`) with an atomic `latest` alias give blue/green publishing and instant rollback.
+
+**4. Self-hosted routing stack.** The trip calculator is the biggest risk. Public Nominatim and OSRM will not cooperate at 1M MAU; host both yourself:
+- **OSRM** in three regions (EU-Central, US-East, Asia-SEA) on `c7g.xlarge` instances. Pre-process a Europe extract on the small nodes, full planet on the larger one.
+- **Nominatim** once, on a node with 1 TB SSD and 64 GB RAM.
+- Route clients to the nearest region via geo-DNS.
+
+**5. Redis cache in front of routing.** Trip calculations are deterministic — same waypoints + same mode + same daily dataset = same answer. Key cache entries on `SHA256(waypoints | mode | dataset_version)` with a 1-hour TTL. Popular presets ("Istanbul → Berlin", "Paris → Munich") will hit 95 %+ cache rate, meaning the self-hosted OSRM cluster only serves a handful of unique requests per minute even at peak.
+
+**6. Observability.** OpenTelemetry spans threaded through the pipeline and API, metrics into Prometheus, traces into Grafana Tempo, frontend errors into Sentry. SLO alerts on: cache hit ratio < 90 %, upstream feed > 6 h stale, dataset generation p99 > 15 min, routing p99 > 800 ms.
+
+**7. Security & abuse control.** Cloudflare WAF with per-IP rate limit of 1000 req/min, 100 req/min for the routing path. Bot-fight mode on, GeoJSON and prices files marked `Cache-Control: public, max-age=900, stale-while-revalidate=3600`. No cookies, no user accounts, no PII — the GDPR footprint is trivially empty.
+
+### Capacity model
+
+Assumes 1 M monthly actives, 10 % DAU, peak factor 3× over the daily average, 4 hot requests per session (map load + one trip calculation).
+
+| Dimension | Daily | Peak hour | Peak second |
+|---|---:|---:|---:|
+| Sessions | 100 000 | 12 500 | 3.5 |
+| Static GETs (dataset + tiles) | 400 000 | 50 000 | ~14 |
+| Edge bandwidth out | ~44 GB | ~5.5 GB | — |
+| Trip-calc requests (geocode + route) | 30 000 | 3 750 | ~1.1 |
+| OSRM requests (after 95 % cache hit) | 1 500 | 188 | ~0.05 |
+
+The numbers fit a single small OSRM per region and one Nominatim. Redis can be a $25/month single-node `cache.t4g.small`.
+
+### Cost estimate at 1 M MAU
+
+| Component | Monthly |
+|---|---:|
+| Cloudflare Pro + Workers | $25 |
+| R2 / S3 storage + egress | $30 |
+| OSRM × 3 regions (`c7g.xlarge`) | $330 |
+| Nominatim (`r6g.2xlarge` + 1 TB EBS) | $340 |
+| Redis cache | $30 |
+| Workflow engine (Temporal Cloud free tier or EventBridge + Lambda) | $25 |
+| Monitoring (Grafana Cloud free + Sentry Team) | $50 |
+| **Total** | **~$830 / mo** |
+
+At 1 M MAU that works out to **$0.00083 per user per month** — well inside "buy the oncall engineer a pizza" territory, with plenty of headroom for the next order of magnitude.
+
+### Migration path
+
+**Phase 1 — CDN in front of GitHub Pages** (`~$25/mo`, ≈ 1 day of work)
+Point Cloudflare at the existing Pages origin, add WAF rate limiting, move DNS. Zero code changes. Immediately solves the bandwidth ceiling and cache-purge control.
+
+**Phase 2 — Dataset split + Redis-cached trips** (`~$80/mo`, ≈ 1 week)
+Generate per-country files in the existing pipeline. Deploy a small routing proxy with Redis in front that still fronts public Nominatim/OSRM, but cached. This buys another order of magnitude while keeping the bill small.
+
+**Phase 3 — Self-hosted routing stack + workflow engine** (`~$830/mo`, ≈ 2–3 weeks)
+Stand up OSRM and Nominatim in the regions that show real traffic. Move the pipeline to Temporal / EventBridge. Add observability. Fully production-grade at 1 M+ MAU.
+
+### Testing the plan
+
+- **Load tests** with [k6](https://k6.io/) replaying a realistic traffic mix (70 % map loads, 25 % trip calculations, 5 % API scraping) against a staging deploy.
+- **Chaos runs**: kill an upstream feed and verify the pipeline fails gracefully with the last-known-good dataset still published; kill one OSRM region and verify geo-DNS fails over; fill Redis to eviction threshold and verify cache hit ratio degrades smoothly rather than collapsing.
+- **Budget alarms** on AWS / Cloudflare at 50 %, 75 % and 90 % of expected monthly spend — a runaway bill is the most likely real incident at this scale, not downtime.
+
+### Non-goals
+
+This design is deliberately boring. No Kubernetes, no service mesh, no multi-cloud. The data is public, the service is idempotent, and the load is CDN-cacheable — the right answer is a CDN plus three VMs plus a Redis plus a cron, not a thirty-pod cluster. If the traffic pattern ever demands something more exotic (real-time pricing, per-user personalization, writes), the pipeline and dataset layers above are designed to survive a rewrite of only the dynamic services.
+
 ## 📌 Roadmap
 
 - [ ] Live global electricity feed (replace static fallback for non-EU)
